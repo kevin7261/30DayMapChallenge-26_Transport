@@ -1,6 +1,6 @@
-# 🌍 30 Day Map Challenge - Day 16: Cell
+# 🌍 30 Day Map Challenge - Day 25: Hexagons
 
-一個基於 Vue 3 和 D3.js 的互動式世界地圖視覺化應用，展示參展國家分布。
+一個基於 Vue 3 和 D3.js 的互動式地圖視覺化應用。
 
 ## 📸 專案截圖
 
@@ -69,9 +69,9 @@ public/
 1. **克隆專案**
 
    ```bash
-   git clone https://github.com/kevin7261/30DayMapChallenge-16_Cell.git
-   cd 30DayMapChallenge-16_Cell
-   cd website/30DayMapChallenge-16_Cell
+   git clone https://github.com/kevin7261/30DayMapChallenge-25_Hexagons.git
+   cd 30DayMapChallenge-25_Hexagons
+   cd website/30DayMapChallenge-25_Hexagons
    ```
 
 2. **安裝依賴**
@@ -86,7 +86,7 @@ public/
    npm run serve
    ```
 
-   瀏覽器訪問：`http://localhost:8080/30DayMapChallenge-16_Cell/`
+   瀏覽器訪問：`http://localhost:8080/30DayMapChallenge-25_Hexagons/`
 
 4. **構建生產版本**
 
@@ -169,8 +169,8 @@ const southLatLimit = -60; // 南緯限制
 
 ## 🌐 線上展示
 
-- **GitHub Pages**: https://kevin7261.github.io/30DayMapChallenge-16_Cell/
-- **專案倉庫**: https://github.com/kevin7261/30DayMapChallenge-16_Cell
+- **GitHub Pages**: https://kevin7261.github.io/30DayMapChallenge-25_Hexagons/
+- **專案倉庫**: https://github.com/kevin7261/30DayMapChallenge-25_Hexagons
 
 ## 📝 開發指令
 
@@ -215,4 +215,4 @@ npm run deploy
 
 ---
 
-**#30DayMapChallenge** 🗺️ Day 16: Cell
+**#30DayMapChallenge** 🗺️ Day 25: Hexagons
