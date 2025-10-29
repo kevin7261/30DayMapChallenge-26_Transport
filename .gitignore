@@ -21,3 +21,4 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+public/data/geojson/dengue_grid_counts_1km_2023_with_county.geojson
