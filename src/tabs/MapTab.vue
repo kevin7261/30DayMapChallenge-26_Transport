@@ -828,7 +828,10 @@
               projection = d3.geoMercator();
               if (countyData.value) {
                 projection.fitExtent(
-                  [[20, 20], [width - 20, height - 20]],
+                  [
+                    [20, 20],
+                    [width - 20, height - 20],
+                  ],
                   countyData.value
                 );
               } else {
@@ -902,7 +905,10 @@
               projection = d3.geoMercator();
               if (countyData.value) {
                 projection.fitExtent(
-                  [[20, 20], [width - 20, height - 20]],
+                  [
+                    [20, 20],
+                    [width - 20, height - 20],
+                  ],
                   countyData.value
                 );
               } else {
@@ -1058,7 +1064,10 @@
           projection = d3.geoMercator();
           if (fitFeature) {
             projection.fitExtent(
-              [[20, 20], [width - 20, height - 20]],
+              [
+                [20, 20],
+                [width - 20, height - 20],
+              ],
               fitFeature
             );
           } else {
