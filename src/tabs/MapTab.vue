@@ -591,6 +591,10 @@
             });
 
           console.log('[MapTab] 方格（Grid 模式）繪製完成');
+          // 在每個方格中心畫紅點（置於箭頭之下）
+          drawGridCentroids();
+          // 在每個方格中心繪製借車/還車角度箭頭
+          drawAngleArrows();
         } catch (error) {
           console.error('[MapTab] 方格繪製失敗:', error);
         }
@@ -1026,9 +1030,205 @@
           console.log('[MapTab] 方格（地圖模式）繪製完成');
           console.log('  - SVG 中的 path 元素數量:', g.selectAll('path').size());
           console.log('  - hex-grid class 元素數量:', g.selectAll('.hex-grid').size());
+
+          // 在每個方格中心畫紅點（置於箭頭之下）
+          drawGridCentroids();
+          // 在每個方格中心繪製借車/還車角度箭頭
+          drawAngleArrows();
         } catch (error) {
           console.error('[MapTab] 方格繪製失敗:', error);
         }
+      };
+
+      /**
+       * 🔴 在每個網格中心畫紅點
+       */
+      const drawGridCentroids = () => {
+        if (!g || !hexData.value || !path) return;
+
+        // 先清除舊的點
+        g.selectAll('.grid-centroids').remove();
+
+        const group = g.append('g').attr('class', 'grid-centroids').attr('pointer-events', 'none');
+
+        const features = hexData.value.features || [];
+
+        const centroids = features
+          .map((f) => ({ feature: f, c: path.centroid(f) }))
+          .filter((d) => Number.isFinite(d.c[0]) && Number.isFinite(d.c[1]));
+
+        group
+          .selectAll('circle.grid-centroid')
+          .data(centroids)
+          .enter()
+          .append('circle')
+          .attr('class', 'grid-centroid')
+          .attr('cx', (d) => d.c[0])
+          .attr('cy', (d) => d.c[1])
+          .attr('r', 2.5)
+          .attr('fill', '#ff0000')
+          .attr('stroke', 'none');
+
+        // 不提升圖層，讓箭頭可覆蓋於點之上
+      };
+
+      /**
+       * 🧭 建立箭頭標記 (SVG marker)
+       */
+      const ensureArrowMarkers = () => {
+        if (!svg) return;
+        let defs = svg.select('defs');
+        if (defs.empty()) {
+          defs = svg.append('defs');
+        }
+
+        const markers = [
+          { id: 'arrow-borrow', color: '#1a237e' },
+          { id: 'arrow-return', color: '#d32f2f' },
+        ];
+
+        markers.forEach(({ id, color }) => {
+          let marker = defs.select(`#${id}`);
+          if (!marker.empty()) return;
+          marker = defs
+            .append('marker')
+            .attr('id', id)
+            .attr('viewBox', '0 0 10 10')
+            .attr('refX', 9)
+            .attr('refY', 5)
+            .attr('markerWidth', 6)
+            .attr('markerHeight', 6)
+            .attr('markerUnits', 'strokeWidth')
+            .attr('orient', 'auto-start-reverse');
+          marker.append('path').attr('d', 'M 0 0 L 10 5 L 0 10 z').attr('fill', color);
+        });
+      };
+
+      /**
+       * 🧭 在每個網格的中心畫出借車/還車角度的箭頭
+       * - 借車：藍色 '#1a237e'，使用 marker 'arrow-borrow'
+       * - 還車：紅色 '#d32f2f'，使用 marker 'arrow-return'
+       */
+      const drawAngleArrows = () => {
+        if (!g || !hexData.value || !path) return;
+
+        ensureArrowMarkers();
+
+        // 先清除舊的箭頭
+        g.selectAll('.angle-arrows').remove();
+
+        const arrowsGroup = g
+          .append('g')
+          .attr('class', 'angle-arrows')
+          .attr('pointer-events', 'none');
+
+        // 確保箭頭圖層在最上層
+        if (arrowsGroup.raise) arrowsGroup.raise();
+
+        const features = hexData.value.features || [];
+
+        // 箭頭長度與偏移
+        const arrowLength = 16;
+        const offsetDistance = 4;
+
+        let validBorrow = 0;
+        let validReturn = 0;
+        let sampleCentroids = [];
+
+        features.forEach((feature, idx) => {
+          const borrowDeg = feature.properties?.['借車角度平均'];
+          const returnDeg = feature.properties?.['還車角度平均'];
+
+          // 使用 d3.polygonCentroid 計算多邊形中心
+          let cx, cy;
+          try {
+            if (
+              feature.geometry &&
+              feature.geometry.coordinates &&
+              feature.geometry.coordinates[0]
+            ) {
+              const coords = feature.geometry.coordinates[0];
+              const polygon = coords.map((coord) => [coord[0], coord[1]]);
+              const centroid = d3.polygonCentroid(polygon);
+              const projected = projection(centroid);
+              cx = projected[0];
+              cy = projected[1];
+            } else {
+              // 備用方案：使用 path.centroid
+              [cx, cy] = path.centroid(feature);
+            }
+          } catch (e) {
+            console.warn('Centroid calculation failed:', e);
+            return;
+          }
+
+          if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
+            return;
+          }
+
+          // 記錄前幾個 centroid 位置用於調試
+          if (idx < 5 && (borrowDeg || returnDeg)) {
+            sampleCentroids.push({ cx, cy, borrowDeg, returnDeg });
+          }
+
+          // 不再渲染圓心輔助點
+
+          const drawOneArrow = (deg, color, markerId, offsetSign) => {
+            if (deg === null || deg === undefined || Number.isNaN(deg)) return;
+            const rad = (deg * Math.PI) / 180;
+            const dx = Math.cos(rad) * arrowLength;
+            const dy = Math.sin(rad) * arrowLength;
+
+            // 與方向垂直的偏移，讓兩支箭頭不重疊
+            const ox = -Math.sin(rad) * offsetDistance * offsetSign;
+            const oy = Math.cos(rad) * offsetDistance * offsetSign;
+
+            arrowsGroup
+              .append('line')
+              .attr('x1', cx + ox)
+              .attr('y1', cy + oy)
+              .attr('x2', cx + ox + dx)
+              .attr('y2', cy + oy + dy)
+              .attr('stroke', color)
+              .attr('stroke-width', 2)
+              .attr('stroke-linecap', 'round')
+              .attr('stroke-opacity', 0.95)
+              .attr('marker-end', `url(#${markerId})`)
+              .attr('class', 'angle-arrow');
+          };
+
+          // 借車角度箭頭（藍）在一側偏移
+          const beforeB = arrowsGroup.selectAll('.angle-arrow').size();
+          drawOneArrow(borrowDeg, '#1a237e', 'arrow-borrow', 1);
+          const afterB = arrowsGroup.selectAll('.angle-arrow').size();
+          if (afterB > beforeB) validBorrow++;
+
+          // 還車角度箭頭（紅）在另一側偏移
+          const beforeR = arrowsGroup.selectAll('.angle-arrow').size();
+          drawOneArrow(returnDeg, '#d32f2f', 'arrow-return', -1);
+          const afterR = arrowsGroup.selectAll('.angle-arrow').size();
+          if (afterR > beforeR) validReturn++;
+        });
+
+        let bbox = null;
+        try {
+          bbox = arrowsGroup.node()?.getBBox?.();
+        } catch (e) {
+          bbox = null;
+        }
+
+        // 將箭頭圖層再次置頂
+        if (arrowsGroup.raise) arrowsGroup.raise();
+
+        console.log('[MapTab] 角度箭頭繪製完成', {
+          features: features.length,
+          validBorrow,
+          validReturn,
+          totalArrows: arrowsGroup.selectAll('.angle-arrow').size(),
+          bbox,
+          sampleCentroids,
+          svgSize: svg ? { width: svg.attr('width'), height: svg.attr('height') } : null,
+        });
       };
 
       // 圖例功能已移除（不再進行分類著色）
