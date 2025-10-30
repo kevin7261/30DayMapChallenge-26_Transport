@@ -1,4 +1,4 @@
-# 🌍 30 Day Map Challenge - Day 25: Hexagons
+# 🌍 30 Day Map Challenge - Day 26: Transport
 
 一個基於 Vue 3 和 D3.js 的互動式地圖視覺化應用。
 
@@ -69,9 +69,9 @@ public/
 1. **克隆專案**
 
    ```bash
-   git clone https://github.com/kevin7261/30DayMapChallenge-25_Hexagons.git
-   cd 30DayMapChallenge-25_Hexagons
-   cd website/30DayMapChallenge-25_Hexagons
+   git clone https://github.com/kevin7261/30DayMapChallenge-26_Transport.git
+   cd 30DayMapChallenge-26_Transport
+   cd website/30DayMapChallenge-26_Transport
    ```
 
 2. **安裝依賴**
@@ -86,7 +86,7 @@ public/
    npm run serve
    ```
 
-   瀏覽器訪問：`http://localhost:8080/30DayMapChallenge-25_Hexagons/`
+   瀏覽器訪問：`http://localhost:8080/30DayMapChallenge-26_Transport/`
 
 4. **構建生產版本**
 
@@ -169,8 +169,8 @@ const southLatLimit = -60; // 南緯限制
 
 ## 🌐 線上展示
 
-- **GitHub Pages**: https://kevin7261.github.io/30DayMapChallenge-25_Hexagons/
-- **專案倉庫**: https://github.com/kevin7261/30DayMapChallenge-25_Hexagons
+- **GitHub Pages**: https://kevin7261.github.io/30DayMapChallenge-26_Transport/
+- **專案倉庫**: https://github.com/kevin7261/30DayMapChallenge-26_Transport
 
 ## 📝 開發指令
 
@@ -215,4 +215,4 @@ npm run deploy
 
 ---
 
-**#30DayMapChallenge** 🗺️ Day 25: Hexagons
+**#30DayMapChallenge** 🗺️ Day 26: Transport
