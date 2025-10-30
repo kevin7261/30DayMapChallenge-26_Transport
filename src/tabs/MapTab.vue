@@ -1062,8 +1062,8 @@
             .attr('viewBox', '0 0 10 10')
             .attr('refX', 9)
             .attr('refY', 5)
-            .attr('markerWidth', 8)
-            .attr('markerHeight', 8)
+            .attr('markerWidth', 4)
+            .attr('markerHeight', 4)
             .attr('markerUnits', 'strokeWidth')
             .attr('orient', 'auto-start-reverse');
           marker.append('path').attr('d', 'M 0 0 L 10 5 L 0 10 z').attr('fill', color);
@@ -1093,9 +1093,9 @@
 
         const features = hexData.value.features || [];
 
-        // 箭頭長度與偏移（縮小）
+        // 箭頭長度，兩支箭頭共用同一個原點（不做側向偏移）
         const arrowLength = 16;
-        const offsetDistance = 4;
+        const offsetDistance = 0;
 
         let validBorrow = 0;
         let validReturn = 0;
@@ -1139,7 +1139,7 @@
 
           // 不渲染圓心輔助點（需求完成後移除）
 
-          const drawOneArrow = (deg, color, markerId, offsetSign) => {
+          const drawOneArrow = (deg, color, markerId, offsetSign, pointToCenter = false) => {
             if (deg === null || deg === undefined || Number.isNaN(deg)) return;
             // 以指南針角度為準：正上方=0°，順時針增加
             const rad = ((deg - 90) * Math.PI) / 180;
@@ -1150,15 +1150,20 @@
             const ox = -Math.sin(rad) * offsetDistance * offsetSign;
             const oy = Math.cos(rad) * offsetDistance * offsetSign;
 
+            const x1 = pointToCenter ? cx + ox - dx : cx + ox;
+            const y1 = pointToCenter ? cy + oy - dy : cy + oy;
+            const x2 = pointToCenter ? cx + ox : cx + ox + dx;
+            const y2 = pointToCenter ? cy + oy : cy + oy + dy;
+
             arrowsGroup
               .append('line')
-              .attr('x1', cx + ox)
-              .attr('y1', cy + oy)
-              .attr('x2', cx + ox + dx)
-              .attr('y2', cy + oy + dy)
+              .attr('x1', x1)
+              .attr('y1', y1)
+              .attr('x2', x2)
+              .attr('y2', y2)
               .attr('stroke', color)
               .attr('stroke-width', 2)
-              .attr('stroke-linecap', 'round')
+              .attr('stroke-linecap', 'butt')
               .attr('stroke-opacity', 0.95)
               .attr('marker-end', `url(#${markerId})`)
               .attr('class', 'angle-arrow');
@@ -1166,13 +1171,19 @@
 
           // 借車角度箭頭（藍）在一側偏移
           const beforeB = arrowsGroup.selectAll('.angle-arrow').size();
-          drawOneArrow(borrowDeg, '#1a237e', 'arrow-borrow', 1);
+          // 借車：箭頭由中心朝外（忽略 null/NaN）
+          if (borrowDeg !== null && borrowDeg !== undefined && !Number.isNaN(borrowDeg)) {
+            drawOneArrow(borrowDeg, '#1a237e', 'arrow-borrow', 1, false);
+          }
           const afterB = arrowsGroup.selectAll('.angle-arrow').size();
           if (afterB > beforeB) validBorrow++;
 
           // 還車角度箭頭（紅）在另一側偏移
           const beforeR = arrowsGroup.selectAll('.angle-arrow').size();
-          drawOneArrow(returnDeg, '#d32f2f', 'arrow-return', -1);
+          // 還車：箭頭由外朝中心（箭頭尖端在中心），角度先加 180°（忽略 null/NaN）
+          if (returnDeg !== null && returnDeg !== undefined && !Number.isNaN(returnDeg)) {
+            drawOneArrow(returnDeg + 180, '#d32f2f', 'arrow-return', -1, true);
+          }
           const afterR = arrowsGroup.selectAll('.angle-arrow').size();
           if (afterR > beforeR) validReturn++;
         });
