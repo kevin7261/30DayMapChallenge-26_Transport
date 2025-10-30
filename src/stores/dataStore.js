@@ -18,7 +18,7 @@ import { ref } from 'vue';
  * @returns {Object} 包含所有狀態和方法的商店對象
  */
 export const useDataStore = defineStore(
-  'data', // 商店唯一標識符
+  'data',
   () => {
     // ------------------------------------------------------------
     // 地圖實例管理

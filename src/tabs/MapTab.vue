@@ -1036,37 +1036,7 @@
         }
       };
 
-      /**
-       * 🔴 在每個網格中心畫紅點
-       */
-      const drawGridCentroids = () => {
-        if (!g || !hexData.value || !path) return;
-
-        // 先清除舊的點
-        g.selectAll('.grid-centroids').remove();
-
-        const group = g.append('g').attr('class', 'grid-centroids').attr('pointer-events', 'none');
-
-        const features = hexData.value.features || [];
-
-        const centroids = features
-          .map((f) => ({ feature: f, c: path.centroid(f) }))
-          .filter((d) => Number.isFinite(d.c[0]) && Number.isFinite(d.c[1]));
-
-        group
-          .selectAll('circle.grid-centroid')
-          .data(centroids)
-          .enter()
-          .append('circle')
-          .attr('class', 'grid-centroid')
-          .attr('cx', (d) => d.c[0])
-          .attr('cy', (d) => d.c[1])
-          .attr('r', 2.5)
-          .attr('fill', '#ff0000')
-          .attr('stroke', 'none');
-
-        // 不提升圖層，讓箭頭可覆蓋於點之上
-      };
+      // （已移除）原本用於除錯的紅點顯示函數 drawGridCentroids
 
       /**
        * 🧭 建立箭頭標記 (SVG marker)
@@ -1171,7 +1141,8 @@
 
           const drawOneArrow = (deg, color, markerId, offsetSign) => {
             if (deg === null || deg === undefined || Number.isNaN(deg)) return;
-            const rad = (deg * Math.PI) / 180;
+            // 以指南針角度為準：正上方=0°，順時針增加
+            const rad = ((deg - 90) * Math.PI) / 180;
             const dx = Math.cos(rad) * arrowLength;
             const dy = Math.sin(rad) * arrowLength;
 
