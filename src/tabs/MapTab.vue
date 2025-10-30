@@ -672,10 +672,11 @@
 
           console.log('[MapTab] Grid 範圍:', { minX, maxX, minY, maxY });
 
-          // 獲取 SVG 尺寸
-          const svgWidth = +svg.attr('width') || mapContainer.value.getBoundingClientRect().width;
+          // 獲取 SVG 尺寸（在 svg 尚未建立時回退到容器尺寸）
+          const svgWidth =
+            (svg ? +svg.attr('width') : null) || mapContainer.value.getBoundingClientRect().width;
           const svgHeight =
-            +svg.attr('height') || mapContainer.value.getBoundingClientRect().height;
+            (svg ? +svg.attr('height') : null) || mapContainer.value.getBoundingClientRect().height;
 
           // 創建比例尺（帶有一些邊距）
           const padding = 50;
@@ -1062,8 +1063,8 @@
             .attr('viewBox', '0 0 10 10')
             .attr('refX', 9)
             .attr('refY', 5)
-            .attr('markerWidth', 4)
-            .attr('markerHeight', 4)
+            .attr('markerWidth', 2)
+            .attr('markerHeight', 2)
             .attr('markerUnits', 'strokeWidth')
             .attr('orient', 'auto-start-reverse');
           marker.append('path').attr('d', 'M 0 0 L 10 5 L 0 10 z').attr('fill', color);
@@ -1093,8 +1094,8 @@
 
         const features = hexData.value.features || [];
 
-        // 箭頭長度，兩支箭頭共用同一個原點（不做側向偏移）
-        const arrowLength = 16;
+        // 箭頭長度（縮小一半），兩支箭頭共用同一個原點（不做側向偏移）
+        const arrowLength = 8;
         const offsetDistance = 0;
 
         let validBorrow = 0;
@@ -1162,7 +1163,7 @@
               .attr('x2', x2)
               .attr('y2', y2)
               .attr('stroke', color)
-              .attr('stroke-width', 2)
+              .attr('stroke-width', 1.5)
               .attr('stroke-linecap', 'butt')
               .attr('stroke-opacity', 0.95)
               .attr('marker-end', `url(#${markerId})`)
@@ -1205,7 +1206,6 @@
           totalArrows: arrowsGroup.selectAll('.angle-arrow').size(),
           bbox,
           sampleCentroids,
-          svgSize: svg ? { width: svg.attr('width'), height: svg.attr('height') } : null,
         });
       };
 
