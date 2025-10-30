@@ -199,15 +199,15 @@
       // ═══════════════════════════════════════════════════════════════════════
 
       /**
-       * 縣市 GeoJSON 數據
-       * 來源：直轄市、縣(市)界線1140318.geojson
+       * 區界 GeoJSON 數據（臺北市）
+       * 來源：臺北市區界圖_20220915.geojson
        * @type {Ref<Object|null>}
        */
       const countyData = ref(null);
 
       /**
-       * 六角形網格 GeoJSON 數據
-       * 來源：hex_grid_pointy_with_population.geojson
+       * 網格 GeoJSON 數據（臺北市 500m 方格）
+       * 來源：taipei_500m_grid_area_join.geojson
        * @type {Ref<Object|null>}
        */
       const hexData = ref(null);
@@ -226,9 +226,9 @@
         try {
           console.log('[MapTab] 開始載入直轄市、縣(市)界線 GeoJSON 數據...');
 
-          // 載入縣市 GeoJSON 檔案
+          // 載入臺北市區界 GeoJSON 檔案
           const countyResponse = await fetch(
-            `${process.env.BASE_URL}data/geojson/直轄市、縣(市)界線1140318.geojson`
+            `${process.env.BASE_URL}data/geojson/臺北市區界圖_20220915.geojson`
           );
 
           // 檢查響應
@@ -239,8 +239,8 @@
           // 解析 JSON
           countyData.value = await countyResponse.json();
 
-          console.log('[MapTab] 直轄市、縣(市)界線數據載入成功');
-          console.log('  - 縣市數量:', countyData.value.features?.length || 0);
+          console.log('[MapTab] 臺北市區界數據載入成功');
+          console.log('  - 區數量:', countyData.value.features?.length || 0);
 
           return true;
         } catch (error) {
@@ -274,31 +274,31 @@
       };
 
       /**
-       * 📥 載入六角形網格 GeoJSON 數據
+       * 📥 載入網格 GeoJSON 數據
        */
       const loadHexData = async () => {
         try {
-          console.log('[MapTab] 開始載入六角形網格 GeoJSON 數據...');
+          console.log('[MapTab] 開始載入 500m 方格 GeoJSON 數據...');
 
-          // 載入六角形網格 GeoJSON 檔案
+          // 載入臺北市 500m 方格 GeoJSON 檔案
           const hexResponse = await fetch(
-            `${process.env.BASE_URL}data/geojson/hex_grid_pointy_with_population.geojson`
+            `${process.env.BASE_URL}data/geojson/taipei_500m_grid_area_join.geojson`
           );
 
           // 檢查響應
           if (!hexResponse.ok) {
-            throw new Error(`六角形網格數據載入失敗: HTTP ${hexResponse.status}`);
+            throw new Error(`方格數據載入失敗: HTTP ${hexResponse.status}`);
           }
 
           // 解析 JSON
           hexData.value = await hexResponse.json();
 
-          console.log('[MapTab] 六角形網格數據載入成功');
+          console.log('[MapTab] 500m 方格數據載入成功');
           console.log('  - 網格數量:', hexData.value.features?.length || 0);
 
           return true;
         } catch (error) {
-          console.error('[MapTab] 六角形網格數據載入失敗:', error);
+          console.error('[MapTab] 500m 方格數據載入失敗:', error);
           return false;
         }
       };
@@ -523,7 +523,7 @@
       const drawHexGridOnly = () => {
         if (!g || !hexData.value || !path) {
           console.error(
-            '[MapTab] 無法繪製六角形網格: g=',
+            '[MapTab] 無法繪製方格: g=',
             !!g,
             'hexData=',
             !!hexData.value,
@@ -534,103 +534,29 @@
         }
 
         try {
-          console.log('[MapTab] 開始繪製六角形網格（Grid 模式）');
+          console.log('[MapTab] 開始繪製方格（Grid 模式）');
 
           // 先清除舊的圖層（包括縣市界線）
           g.selectAll('.hex-grid').remove();
           g.selectAll('.county').remove();
-
-          // 提取大陸地區人民核准定居數據
-          const values = hexData.value.features
-            .map((d) => d.properties['大陸地區人民核准定居'] || 0)
-            .filter((v) => v > 0); // 只取非零值
-
-          console.log('[MapTab] 大陸地區人民核准定居數據:', {
-            total: hexData.value.features.length,
-            nonZero: values.length,
-            min: d3.min(values),
-            max: d3.max(values),
-            mean: d3.mean(values),
-          });
-
-          // 使用固定區間分為 5 類
-          const min = d3.min(values);
-          const max = d3.max(values);
-          const interval = (max - min) / 5;
-          const breaks = [
-            min + interval * 1,
-            min + interval * 2,
-            min + interval * 3,
-            min + interval * 4,
-            max,
-          ];
-          console.log('[MapTab] Fixed Interval 分類閾值:', breaks);
-
-          // 顏色方案：5級，根據圖片顏色（深藍→綠→黃→橙→紅）
-          const colors = [
-            '#2C508C', // 深藍
-            '#2E8B57', // 綠
-            '#FFC107', // 黃
-            '#FF8C00', // 橙
-            '#DC3545', // 紅
-          ];
-
-          // 顏色映射函數
-          const getColor = (value) => {
-            if (!value || value === 0) return '#f0f0f0'; // 無數據的顏色
-            for (let i = 0; i < breaks.length; i++) {
-              if (value <= breaks[i]) {
-                return colors[i];
-              }
-            }
-            return colors[colors.length - 1]; // 最大值
-          };
-
-          // 計算各級數量
-          const classCounts = new Array(colors.length).fill(0);
-          hexData.value.features.forEach((d) => {
-            const value = d.properties['大陸地區人民核准定居'] || 0;
-            if (value > 0) {
-              for (let i = 0; i < breaks.length; i++) {
-                if (value <= breaks[i]) {
-                  classCounts[i]++;
-                  break;
-                }
-              }
-              if (value > breaks[breaks.length - 1]) {
-                classCounts[colors.length - 1]++;
-              }
-            }
-          });
-
-          // 按大陸地區人民核准定居數量排序
-          const sortedHexes = hexData.value.features.sort((a, b) => {
-            const valueA = a.properties['大陸地區人民核准定居'] || 0;
-            const valueB = b.properties['大陸地區人民核准定居'] || 0;
-            return valueA - valueB;
-          });
-
-          console.log('[DEBUG] Grid 模式 - 總共要繪製的六角形網格數:', sortedHexes.length);
-
-          // 繪製所有六角形網格
+          // 直接繪製所有網格（無分類、無填色）
           const hexPaths = g
             .selectAll('.hex-grid')
-            .data(sortedHexes)
+            .data(hexData.value.features)
             .enter()
             .append('path')
             .attr('d', path)
             .attr('class', 'hex-grid')
-            .attr('fill', (d) => getColor(d.properties['大陸地區人民核准定居']))
-            .attr('fill-opacity', 0.8)
-            .attr('stroke', '#ffffff')
-            .attr('stroke-width', 0.5)
+            .attr('fill', 'none')
+            .attr('stroke', '#777')
+            .attr('stroke-width', 0.6)
             .style('cursor', 'pointer');
 
           console.log('[DEBUG] Grid 模式 - 繪製了多少個 path 元素:', hexPaths.size());
 
           hexPaths
             .on('mouseover', function (event, d) {
-              d3.select(this).attr('fill-opacity', 1).attr('stroke-width', 2);
+              d3.select(this).attr('stroke-width', 1.2);
               if (tooltip) {
                 const properties = d.properties;
                 // 顯示所有 properties 欄位
@@ -654,18 +580,15 @@
               }
             })
             .on('mouseout', function () {
-              d3.select(this).attr('fill-opacity', 0.8).attr('stroke-width', 0.5);
+              d3.select(this).attr('stroke-width', 0.6);
               if (tooltip) {
                 tooltip.style.opacity = 0;
               }
             });
 
-          // 繪製圖例
-          drawLegend(breaks, colors, classCounts);
-
-          console.log('[MapTab] 六角形網格（Grid 模式）繪製完成');
+          console.log('[MapTab] 方格（Grid 模式）繪製完成');
         } catch (error) {
-          console.error('[MapTab] 六角形網格繪製失敗:', error);
+          console.error('[MapTab] 方格繪製失敗:', error);
         }
       };
 
@@ -1007,7 +930,7 @@
       const drawHexGrid = () => {
         if (!g || !hexData.value || !path) {
           console.error(
-            '[MapTab] 無法繪製六角形網格: g=',
+            '[MapTab] 無法繪製方格: g=',
             !!g,
             'hexData=',
             !!hexData.value,
@@ -1018,106 +941,25 @@
         }
 
         try {
-          console.log('[MapTab] 開始繪製六角形網格 GeoJSON');
+          console.log('[MapTab] 開始繪製方格 GeoJSON');
 
           // 先清除舊的圖層
           g.selectAll('.hex-grid').remove();
-
-          // 提取大陸地區人民核准定居數據
-          const values = hexData.value.features
-            .map((d) => d.properties['大陸地區人民核准定居'] || 0)
-            .filter((v) => v > 0); // 只取非零值
-
-          console.log('[MapTab] 大陸地區人民核准定居數據:', {
-            total: hexData.value.features.length,
-            nonZero: values.length,
-            min: d3.min(values),
-            max: d3.max(values),
-            mean: d3.mean(values),
-          });
-
-          // 使用固定區間分為 5 類
-          const min = d3.min(values);
-          const max = d3.max(values);
-          const interval = (max - min) / 5;
-          const breaks = [
-            min + interval * 1,
-            min + interval * 2,
-            min + interval * 3,
-            min + interval * 4,
-            max,
-          ];
-          console.log('[MapTab] Fixed Interval 分類閾值:', breaks);
-
-          // 顏色方案：5級，根據圖片顏色（深藍→綠→黃→橙→紅）
-          const colors = [
-            '#2C508C', // 深藍
-            '#2E8B57', // 綠
-            '#FFC107', // 黃
-            '#FF8C00', // 橙
-            '#DC3545', // 紅
-          ];
-
-          // 顏色映射函數
-          const getColor = (value) => {
-            if (!value || value === 0) return '#f0f0f0'; // 無數據的顏色
-            for (let i = 0; i < breaks.length; i++) {
-              if (value <= breaks[i]) {
-                return colors[i];
-              }
-            }
-            return colors[colors.length - 1]; // 最大值
-          };
-
-          // 計算各級數量
-          const classCounts = new Array(colors.length).fill(0);
-          hexData.value.features.forEach((d) => {
-            const value = d.properties['大陸地區人民核准定居'] || 0;
-            if (value > 0) {
-              for (let i = 0; i < breaks.length; i++) {
-                if (value <= breaks[i]) {
-                  classCounts[i]++;
-                  break;
-                }
-              }
-              if (value > breaks[breaks.length - 1]) {
-                classCounts[colors.length - 1]++;
-              }
-            }
-          });
-
-          // 按大陸地區人民核准定居數量排序
-          const sortedHexes = hexData.value.features.sort((a, b) => {
-            const valueA = a.properties['大陸地區人民核准定居'] || 0;
-            const valueB = b.properties['大陸地區人民核准定居'] || 0;
-            return valueA - valueB;
-          });
-
-          console.log('[DEBUG] 總共要繪製的六角形網格數:', sortedHexes.length);
-          console.log(
-            '[DEBUG] 前 5 個網格顏色:',
-            sortedHexes.slice(0, 5).map((d) => ({
-              value: d.properties['大陸地區人民核准定居'],
-              color: getColor(d.properties['大陸地區人民核准定居']),
-            }))
-          );
-
           // Map 模式：使用地圖投影繪製（使用 GeoJSON coordinates）
           console.log('[MapTab] 使用 Map 模式繪製（地圖投影）');
           console.log('[MapTab] path generator:', !!path, 'g:', !!g);
 
-          // 繪製所有六角形網格
+          // 直接繪製所有網格（無分類、無填色）
           const hexPaths = g
             .selectAll('.hex-grid')
-            .data(sortedHexes)
+            .data(hexData.value.features)
             .enter()
             .append('path')
             .attr('d', path)
             .attr('class', 'hex-grid')
-            .attr('fill', (d) => getColor(d.properties['大陸地區人民核准定居']))
-            .attr('fill-opacity', 0.8)
-            .attr('stroke', '#ffffff')
-            .attr('stroke-width', 0.5)
+            .attr('fill', 'none')
+            .attr('stroke', '#777')
+            .attr('stroke-width', 0.6)
             .style('cursor', 'pointer');
 
           console.log('[DEBUG] 繪製了多少個 path 元素:', hexPaths.size());
@@ -1154,105 +996,15 @@
               }
             });
 
-          // 繪製圖例
-          drawLegend(breaks, colors, classCounts);
-
-          console.log('[MapTab] 六角形網格（地圖模式）繪製完成');
-          console.log('  - 分類閾值:', breaks);
+          console.log('[MapTab] 方格（地圖模式）繪製完成');
           console.log('  - SVG 中的 path 元素數量:', g.selectAll('path').size());
           console.log('  - hex-grid class 元素數量:', g.selectAll('.hex-grid').size());
         } catch (error) {
-          console.error('[MapTab] 登革熱網格繪製失敗:', error);
+          console.error('[MapTab] 方格繪製失敗:', error);
         }
       };
 
-      /**
-       * 🎨 繪製圖例
-       */
-      const drawLegend = (breaks, colors, classCounts) => {
-        if (!svg || !mapContainer.value) return;
-
-        // 移除舊的圖例
-        svg.selectAll('.legend').remove();
-
-        // 圖例尺寸
-        const legendWidth = 200;
-        const legendHeight = 20;
-        const padding = 10;
-
-        // 計算右下角位置（使用容器實際尺寸）
-        const rect = mapContainer.value.getBoundingClientRect();
-        const svgWidth = rect.width;
-        const svgHeight = rect.height;
-        const legendX = svgWidth - legendWidth - padding;
-        const legendY = svgHeight - legendHeight - 80; // 留出更多標籤空間
-
-        // 創建圖例組（固定在 viewport，不受 zoom 影響）
-        const legend = svg
-          .append('g')
-          .attr('class', 'legend')
-          .attr('data-legend-x', legendX)
-          .attr('data-legend-y', legendY)
-          .attr('transform', `translate(${legendX}, ${legendY})`);
-
-        // 繪製每個顏色塊
-        legend
-          .selectAll('.legend-color')
-          .data(colors)
-          .enter()
-          .append('rect')
-          .attr('class', 'legend-color')
-          .attr('x', (d, i) => i * (legendWidth / colors.length))
-          .attr('y', 0)
-          .attr('width', legendWidth / colors.length)
-          .attr('height', legendHeight)
-          .attr('fill', (d) => d)
-          .attr('stroke', '#333')
-          .attr('stroke-width', 1);
-
-        // 添加數值標籤
-        const labels = [0, ...breaks];
-        legend
-          .selectAll('.legend-label')
-          .data(labels)
-          .enter()
-          .append('text')
-          .attr('class', 'legend-label')
-          .attr('x', (d, i) => (i * legendWidth) / (labels.length - 1))
-          .attr('y', legendHeight + 15)
-          .attr('font-size', '11px')
-          .attr('fill', '#333')
-          .attr('text-anchor', 'middle')
-          .text((d) => Math.round(d));
-
-        // 添加各級數量標籤
-        if (classCounts) {
-          legend
-            .selectAll('.legend-count')
-            .data(classCounts)
-            .enter()
-            .append('text')
-            .attr('class', 'legend-count')
-            .attr('x', (d, i) => (i + 0.5) * (legendWidth / classCounts.length))
-            .attr('y', legendHeight + 35)
-            .attr('font-size', '10px')
-            .attr('fill', '#666')
-            .attr('text-anchor', 'middle')
-            .text((d) => d);
-        }
-
-        // 添加標題
-        legend
-          .append('text')
-          .attr('class', 'legend-title')
-          .attr('x', legendWidth / 2)
-          .attr('y', -5)
-          .attr('font-size', '12px')
-          .attr('font-weight', 'bold')
-          .attr('fill', '#333')
-          .attr('text-anchor', 'middle')
-          .text('大陸地區人民核准定居');
-      };
+      // 圖例功能已移除（不再進行分類著色）
 
       /**
        * 🏗️ 創建地圖實例
