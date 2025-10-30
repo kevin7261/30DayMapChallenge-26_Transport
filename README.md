@@ -1,218 +1,91 @@
-# 🌍 30 Day Map Challenge - Day 26: Transport
+# 30DayMapChallenge - Day 26: Transport
 
-一個基於 Vue 3 和 D3.js 的互動式地圖視覺化應用。
+互動式交通方向視覺化（Vue 3 + D3）。以六角格網呈現借車/還車的方向箭頭，並支援 GitHub Pages 部署。
 
-## 📸 專案截圖
+## 線上展示與倉庫
 
-![World Map](https://via.placeholder.com/800x400?text=World+Map+Screenshot)
+- 頁面：`https://kevin7261.github.io/30DayMapChallenge-26_Transport/`
+- 倉庫：`https://github.com/kevin7261/30DayMapChallenge-26_Transport`
 
-## ✨ 功能特色
+## 特色
 
-### 地圖顯示
+- 六角格網展示，於每個格心繪製借車/還車方向箭頭
+- 箭頭大小、顏色、偏移可調；支援圖例與互動提示
+- 自動調整視窗尺寸；支援路由基底 `'/30DayMapChallenge-26_Transport/'`
+- 資料分離：GeoJSON 與統計資料置於 `public/data/`
 
-- **全屏響應式地圖**：使用 D3.js 繪製的麥卡托投影世界地圖
-- **國家分類著色**：
-  - 🔴 **台灣**：紅色標示（主要國家）
-  - 🔵 **參展國家**：淺藍色標示（152個參展國家）
-  - ⚪ **其他國家**：淺灰色標示
-- **微型國家標記**：對於地圖上不易顯示的微型國家，使用圓圈標記
-- **國家名稱提示**：滑鼠懸停時顯示國家名稱
-- **視覺回饋**：懸停時國家顏色會變深
+## 技術棧
 
-### 技術特點
+- Vue 3、Vue Router、Pinia
+- D3.js（繪圖、投影、縮放）
+- Leaflet（底圖，可視需求開啟）
+- Bootstrap 5、Font Awesome
 
-- **Natural Earth 數據**：使用 Natural Earth 1:110m 解析度的國家邊界數據
-- **限制顯示範圍**：北緯 80° 至南緯 60°，避免極地投影扭曲
-- **自動適應**：地圖會隨瀏覽器窗口大小自動調整
+## 資料來源
 
-## 🛠️ 技術架構
+- 自有處理後的格網統計：`public/data/geojson/grid_with_weighted_angle_stats_500m.geojson`
+- 行政區界：`public/data/geojson/臺北市區界圖_20220915.geojson`
 
-### 核心技術
-
-- **Vue 3.2+** - 前端框架（使用 Composition API）
-- **D3.js 7.8+** - 地圖繪製和資料視覺化
-- **Pinia 2.1+** - 狀態管理
-- **Bootstrap 5** - UI 樣式框架
-
-### 專案結構
+## 專案結構（節錄）
 
 ```
 src/
-├── assets/
-│   └── css/              # 樣式文件
-├── stores/
-│   ├── dataStore.js      # 國家數據管理（參展國家列表、微型國家座標）
-│   └── defineStore.js    # 配置存儲（保留供未來擴展）
-├── tabs/
-│   └── MapTab.vue        # 地圖組件（D3.js 地圖繪製邏輯）
-├── views/
-│   └── HomeView.vue      # 主頁面
-├── router/
-│   └── index.js          # 路由配置
-├── App.vue               # 根組件
-└── main.js               # 應用入口
+├─ tabs/
+│  └─ MapTab.vue            # 主要地圖與箭頭繪製邏輯
+├─ stores/
+│  ├─ dataStore.js          # 可視化資料/旗標
+│  └─ defineStore.js        # 設定儲存
+├─ router/
+│  └─ index.js              # history base: '/30DayMapChallenge-26_Transport/'
+└─ main.js
 
 public/
-└── data/
-    └── ne_110m_admin_0_countries.geojson  # Natural Earth 國家邊界數據
+└─ data/
+   └─ geojson/              # GeoJSON 與統計資料
+
+vue.config.js               # publicPath: '/30DayMapChallenge-26_Transport/'
 ```
 
-## 🚀 快速開始
+## 開發與運行
 
-### 環境要求
-
-- Node.js 16.0+
-- npm 7.0+ 或 yarn 1.22+
-
-### 安裝與運行
-
-1. **克隆專案**
-
-   ```bash
-   git clone https://github.com/kevin7261/30DayMapChallenge-26_Transport.git
-   cd 30DayMapChallenge-26_Transport
-   cd website/30DayMapChallenge-26_Transport
-   ```
-
-2. **安裝依賴**
-
-   ```bash
-   npm install
-   ```
-
-3. **啟動開發服務器**
-
-   ```bash
-   npm run serve
-   ```
-
-   瀏覽器訪問：`http://localhost:8080/30DayMapChallenge-26_Transport/`
-
-4. **構建生產版本**
-
-   ```bash
-   npm run build
-   ```
-
-5. **部署到 GitHub Pages**
-   ```bash
-   npm run deploy
-   ```
-
-## 📚 開發指南
-
-### 添加/修改參展國家
-
-編輯 `src/stores/dataStore.js` 中的 `visitedCountries` 陣列：
-
-```javascript
-const visitedCountries = ref([
-  'Algeria', // 阿爾及利亞
-  'Australia', // 澳大利亞
-  'Japan', // 日本
-  // ... 添加更多國家
-]);
-```
-
-**注意**：國家名稱必須與 GeoJSON 數據中的 `properties.name`、`properties.ADMIN`
-或 `properties.NAME` 欄位完全匹配。
-
-### 添加微型國家座標
-
-對於在低解析度地圖中不可見的微型國家，可以在 `src/stores/dataStore.js` 中的
-`microStates` 陣列添加座標：
-
-```javascript
-const microStates = ref([
-  { name: 'Singapore', coordinates: [103.8198, 1.3521] },
-  { name: 'Monaco', coordinates: [7.4246, 43.7384] },
-  // ... 格式：{ name: '國家名稱', coordinates: [經度, 緯度] }
-]);
-```
-
-### 修改國家顏色
-
-在 `src/tabs/MapTab.vue` 的 `drawWorldMap()` 函數中修改：
-
-```javascript
-.attr('fill', (d) => {
-  const countryName = d.properties.name || d.properties.ADMIN || d.properties.NAME;
-  if (dataStore.isHomeCountry(countryName)) return '#ff9999'; // 台灣：紅色
-  if (dataStore.isCountryVisited(countryName)) return '#cce5ff'; // 參展：淺藍色
-  return '#d0d0d0'; // 其他：淺灰色
-})
-```
-
-### 調整地圖投影範圍
-
-在 `src/tabs/MapTab.vue` 的 `createMap()` 函數中修改緯度限制：
-
-```javascript
-const northLatLimit = 80; // 北緯限制
-const southLatLimit = -60; // 南緯限制
-```
-
-## 🎨 樣式自訂
-
-主要樣式位於：
-
-- `src/assets/css/common.css` - 通用樣式
-- `src/assets/css/variables.css` - CSS 變數
-- `src/tabs/MapTab.vue` - 地圖特定樣式（hover 效果等）
-
-## 📊 數據來源
-
-- **Natural Earth**: https://www.naturalearthdata.com/
-  - 數據集：1:110m Cultural Vectors - Admin 0 Countries
-  - 格式：GeoJSON
-  - 授權：Public Domain
-
-## 🌐 線上展示
-
-- **GitHub Pages**: https://kevin7261.github.io/30DayMapChallenge-26_Transport/
-- **專案倉庫**: https://github.com/kevin7261/30DayMapChallenge-26_Transport
-
-## 📝 開發指令
+環境需求：Node.js 16+，npm 7+（或等效包管理器）
 
 ```bash
-# 啟動開發服務器
+git clone https://github.com/kevin7261/30DayMapChallenge-26_Transport.git
+cd 30DayMapChallenge-26_Transport/website/30DayMapChallenge-26_Transport
+npm install
 npm run serve
-
-# 構建生產版本
-npm run build
-
-# 程式碼檢查
-npm run lint
-
-# 程式碼格式化
-npm run format
-
-# 部署到 GitHub Pages
-npm run deploy
 ```
 
-## 🤝 貢獻
+開發預設網址：`http://localhost:8080/30DayMapChallenge-26_Transport/`
 
-歡迎提交 Issue 或 Pull Request！
+## 構建與部署
 
-1. Fork 本專案
-2. 創建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 開啟 Pull Request
+```bash
+npm run build     # 生成 dist/
+npm run deploy    # 以 gh-pages 發佈到 GitHub Pages
+```
 
-## 📄 授權
+注意：本專案的 `publicPath` 與 Router `base` 已設定為 `'/30DayMapChallenge-26_Transport/'`，請維持與倉庫名稱一致。
 
-本專案採用 MIT 授權條款。
+## 常用腳本
 
-## 🙏 致謝
+```bash
+npm run lint          # ESLint 檢查
+npm run lint:fix      # 自動修復
+npm run prettier      # 以 Prettier 套用格式
+npm run format        # Prettier + ESLint fix
+```
 
-- [D3.js](https://d3js.org/) - 強大的資料視覺化庫
-- [Natural Earth](https://www.naturalearthdata.com/) - 免費的地理數據
-- [Vue.js](https://vuejs.org/) - 漸進式 JavaScript 框架
-- [Pinia](https://pinia.vuejs.org/) - Vue 狀態管理
-- [Bootstrap](https://getbootstrap.com/) - CSS 框架
+## 貢獻
 
----
+歡迎提交 Issue 或 PR。建議流程：
 
-**#30DayMapChallenge** 🗺️ Day 26: Transport
+1. Fork 並建立分支：`git checkout -b feature/your-feature`
+2. 提交：`git commit -m "feat: your change"`
+3. 推送：`git push origin feature/your-feature`
+4. 建立 Pull Request
+
+## 授權
+
+MIT License
