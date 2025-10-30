@@ -207,7 +207,7 @@
 
       /**
        * 網格 GeoJSON 數據（臺北市 500m 方格）
-       * 來源：taipei_500m_grid_area_join.geojson
+       * 來源：grid_with_weighted_angle_stats_500m.geojson
        * @type {Ref<Object|null>}
        */
       const hexData = ref(null);
@@ -282,7 +282,7 @@
 
           // 載入臺北市 500m 方格 GeoJSON 檔案
           const hexResponse = await fetch(
-            `${process.env.BASE_URL}data/geojson/taipei_500m_grid_area_join.geojson`
+            `${process.env.BASE_URL}data/geojson/grid_with_weighted_angle_stats_500m.geojson`
           );
 
           // 檢查響應
