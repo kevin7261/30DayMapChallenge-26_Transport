@@ -38,4 +38,8 @@
   --map-country-border: #ffffff; /* 國家邊框：白色 */
   --map-background: var(--my-color-gray-200); /* 地圖背景（海洋）：#eeeeee */
   --map-country-hover: #c0c0c0; /* 懸停顏色：灰色 */
+
+  /* 箭頭顏色（借出=綠、還車=藍） */
+  --map-arrow-borrow: #4caf50; /* 綠色 */
+  --map-arrow-return: var(--map-country-withdrawn); /* 藍色，沿用退出國家藍 */
 }

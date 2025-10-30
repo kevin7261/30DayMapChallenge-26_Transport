@@ -1039,37 +1039,7 @@
 
       // （已移除）原本用於除錯的紅點顯示函數 drawGridCentroids
 
-      /**
-       * 🧭 建立箭頭標記 (SVG marker)
-       */
-      const ensureArrowMarkers = () => {
-        if (!svg) return;
-        let defs = svg.select('defs');
-        if (defs.empty()) {
-          defs = svg.append('defs');
-        }
-
-        const markers = [
-          { id: 'arrow-borrow', color: '#1a237e' },
-          { id: 'arrow-return', color: '#d32f2f' },
-        ];
-
-        markers.forEach(({ id, color }) => {
-          let marker = defs.select(`#${id}`);
-          if (!marker.empty()) return;
-          marker = defs
-            .append('marker')
-            .attr('id', id)
-            .attr('viewBox', '0 0 10 10')
-            .attr('refX', 9)
-            .attr('refY', 5)
-            .attr('markerWidth', 2)
-            .attr('markerHeight', 2)
-            .attr('markerUnits', 'strokeWidth')
-            .attr('orient', 'auto-start-reverse');
-          marker.append('path').attr('d', 'M 0 0 L 10 5 L 0 10 z').attr('fill', color);
-        });
-      };
+      // 已移除：原 SVG marker 箭頭尖端
 
       /**
        * 🧭 在每個網格的中心畫出借車/還車角度的箭頭
@@ -1078,8 +1048,6 @@
        */
       const drawAngleArrows = () => {
         if (!g || !hexData.value || !path) return;
-
-        ensureArrowMarkers();
 
         // 先清除舊的箭頭
         g.selectAll('.angle-arrows').remove();
@@ -1166,7 +1134,6 @@
               .attr('stroke-width', 1.5)
               .attr('stroke-linecap', 'butt')
               .attr('stroke-opacity', 0.95)
-              .attr('marker-end', `url(#${markerId})`)
               .attr('class', 'angle-arrow');
           };
 
@@ -1174,7 +1141,7 @@
           const beforeB = arrowsGroup.selectAll('.angle-arrow').size();
           // 借車：箭頭由中心朝外（忽略 null/NaN）
           if (borrowDeg !== null && borrowDeg !== undefined && !Number.isNaN(borrowDeg)) {
-            drawOneArrow(borrowDeg, '#1a237e', 'arrow-borrow', 1, false);
+            drawOneArrow(borrowDeg, 'var(--map-arrow-borrow)', 'arrow-borrow', 1, false);
           }
           const afterB = arrowsGroup.selectAll('.angle-arrow').size();
           if (afterB > beforeB) validBorrow++;
@@ -1183,7 +1150,7 @@
           const beforeR = arrowsGroup.selectAll('.angle-arrow').size();
           // 還車：箭頭由外朝中心（箭頭尖端在中心），角度先加 180°（忽略 null/NaN）
           if (returnDeg !== null && returnDeg !== undefined && !Number.isNaN(returnDeg)) {
-            drawOneArrow(returnDeg + 180, '#d32f2f', 'arrow-return', -1, true);
+            drawOneArrow(returnDeg + 180, 'var(--map-arrow-return)', 'arrow-return', -1, true);
           }
           const afterR = arrowsGroup.selectAll('.angle-arrow').size();
           if (afterR > beforeR) validReturn++;
