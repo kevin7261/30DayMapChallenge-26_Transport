@@ -438,17 +438,18 @@
         try {
           console.log('[MapTab] 開始繪製直轄市、縣(市)界線 GeoJSON');
 
-          // 繪製所有縣市
+          // 繪製所有行政區（臺北市）
           g.selectAll('.county')
             .data(countyData.value.features)
             .enter()
             .append('path')
             .attr('d', path)
             .attr('class', 'county')
-            .attr('fill', 'none') // 不填充
-            .attr('stroke', '#cccccc') // 淺灰色邊框
-            .attr('stroke-width', 0.5)
-            .attr('stroke-opacity', 0.6);
+            .attr('fill', 'none')
+            .attr('stroke', '#222')
+            .attr('stroke-width', 1.2)
+            .attr('stroke-opacity', 0.9)
+            .attr('vector-effect', 'non-scaling-stroke');
 
           console.log('[MapTab] 直轄市、縣(市)界線 GeoJSON 繪製完成');
         } catch (error) {
@@ -548,15 +549,18 @@
             .attr('d', path)
             .attr('class', 'hex-grid')
             .attr('fill', 'none')
-            .attr('stroke', '#777')
-            .attr('stroke-width', 0.6)
+            .attr('stroke', '#999')
+            .attr('stroke-width', 0.5)
+            .attr('stroke-opacity', 0.7)
+            .attr('shape-rendering', 'crispEdges')
+            .attr('vector-effect', 'non-scaling-stroke')
             .style('cursor', 'pointer');
 
           console.log('[DEBUG] Grid 模式 - 繪製了多少個 path 元素:', hexPaths.size());
 
           hexPaths
             .on('mouseover', function (event, d) {
-              d3.select(this).attr('stroke-width', 1.2);
+              d3.select(this).attr('stroke-width', 0.9).attr('stroke-opacity', 1);
               if (tooltip) {
                 const properties = d.properties;
                 // 顯示所有 properties 欄位
@@ -580,7 +584,7 @@
               }
             })
             .on('mouseout', function () {
-              d3.select(this).attr('stroke-width', 0.6);
+              d3.select(this).attr('stroke-width', 0.5).attr('stroke-opacity', 0.7);
               if (tooltip) {
                 tooltip.style.opacity = 0;
               }
@@ -821,18 +825,25 @@
                 .attr('height', height)
                 .style('background', '#ffffff');
 
-              projection = d3
-                .geoMercator()
-                .center([121, 23.5])
-                .scale(12000)
-                .translate([width / 2, height / 2]);
+              projection = d3.geoMercator();
+              if (countyData.value) {
+                projection.fitExtent(
+                  [[20, 20], [width - 20, height - 20]],
+                  countyData.value
+                );
+              } else {
+                projection
+                  .center([121, 25.05])
+                  .scale(45000)
+                  .translate([width / 2, height / 2]);
+              }
 
               path = d3.geoPath().projection(projection);
               g = svg.append('g');
 
               zoom = d3
                 .zoom()
-                .scaleExtent([0.5, 50])
+                .scaleExtent([0.8, 12])
                 .on('zoom', (event) => {
                   g.attr('transform', event.transform);
                 });
@@ -888,18 +899,25 @@
                 .attr('height', height)
                 .style('background', '#ffffff');
 
-              projection = d3
-                .geoMercator()
-                .center([121, 23.5])
-                .scale(12000)
-                .translate([width / 2, height / 2]);
+              projection = d3.geoMercator();
+              if (countyData.value) {
+                projection.fitExtent(
+                  [[20, 20], [width - 20, height - 20]],
+                  countyData.value
+                );
+              } else {
+                projection
+                  .center([121, 25.05])
+                  .scale(45000)
+                  .translate([width / 2, height / 2]);
+              }
 
               path = d3.geoPath().projection(projection);
               g = svg.append('g');
 
               zoom = d3
                 .zoom()
-                .scaleExtent([0.5, 50])
+                .scaleExtent([0.8, 12])
                 .on('zoom', (event) => {
                   g.attr('transform', event.transform);
                 });
@@ -958,8 +976,11 @@
             .attr('d', path)
             .attr('class', 'hex-grid')
             .attr('fill', 'none')
-            .attr('stroke', '#777')
-            .attr('stroke-width', 0.6)
+            .attr('stroke', '#999')
+            .attr('stroke-width', 0.5)
+            .attr('stroke-opacity', 0.7)
+            .attr('shape-rendering', 'crispEdges')
+            .attr('vector-effect', 'non-scaling-stroke')
             .style('cursor', 'pointer');
 
           console.log('[DEBUG] 繪製了多少個 path 元素:', hexPaths.size());
@@ -1010,7 +1031,7 @@
        * 🏗️ 創建地圖實例
        * 初始化 D3.js 地圖並設定基本配置
        */
-      const createMap = () => {
+      const createMap = (fitFeature = null) => {
         if (!mapContainer.value) return false;
 
         const rect = mapContainer.value.getBoundingClientRect();
@@ -1033,12 +1054,19 @@
             .attr('height', height)
             .style('background', '#ffffff'); // 白色背景
 
-          // 創建投影 - 麥卡托投影，聚焦在台灣
-          projection = d3
-            .geoMercator()
-            .center([121, 23.5]) // 中心點在台灣
-            .scale(12000) // 更大的縮放比例，更聚焦在台灣
-            .translate([width / 2, height / 2]);
+          // 創建投影 - 若有資料則自動貼齊區界（含 20px 邊距）
+          projection = d3.geoMercator();
+          if (fitFeature) {
+            projection.fitExtent(
+              [[20, 20], [width - 20, height - 20]],
+              fitFeature
+            );
+          } else {
+            projection
+              .center([121, 25.05])
+              .scale(45000)
+              .translate([width / 2, height / 2]);
+          }
 
           // 創建路徑生成器
           path = d3.geoPath().projection(projection);
@@ -1049,7 +1077,7 @@
           // 設置縮放行為
           zoom = d3
             .zoom()
-            .scaleExtent([0.5, 50]) // 允許縮放 0.5x 到 50x
+            .scaleExtent([0.8, 12])
             .on('zoom', (event) => {
               g.attr('transform', event.transform);
             });
@@ -1110,7 +1138,7 @@
             attempts++;
             console.log(`[MapTab] 嘗試創建地圖 (${attempts}/${maxAttempts})`);
 
-            if (createMap()) {
+            if (createMap(countyData.value)) {
               console.log('[MapTab] 地圖創建成功，開始繪製圖層');
               // 先繪製縣市界線（底層）
               drawCounties();
