@@ -591,8 +591,6 @@
             });
 
           console.log('[MapTab] 方格（Grid 模式）繪製完成');
-          // 在每個方格中心畫紅點（置於箭頭之下）
-          drawGridCentroids();
           // 在每個方格中心繪製借車/還車角度箭頭
           drawAngleArrows();
         } catch (error) {
@@ -1031,8 +1029,6 @@
           console.log('  - SVG 中的 path 元素數量:', g.selectAll('path').size());
           console.log('  - hex-grid class 元素數量:', g.selectAll('.hex-grid').size());
 
-          // 在每個方格中心畫紅點（置於箭頭之下）
-          drawGridCentroids();
           // 在每個方格中心繪製借車/還車角度箭頭
           drawAngleArrows();
         } catch (error) {
@@ -1096,8 +1092,8 @@
             .attr('viewBox', '0 0 10 10')
             .attr('refX', 9)
             .attr('refY', 5)
-            .attr('markerWidth', 6)
-            .attr('markerHeight', 6)
+            .attr('markerWidth', 8)
+            .attr('markerHeight', 8)
             .attr('markerUnits', 'strokeWidth')
             .attr('orient', 'auto-start-reverse');
           marker.append('path').attr('d', 'M 0 0 L 10 5 L 0 10 z').attr('fill', color);
@@ -1127,7 +1123,7 @@
 
         const features = hexData.value.features || [];
 
-        // 箭頭長度與偏移
+        // 箭頭長度與偏移（縮小）
         const arrowLength = 16;
         const offsetDistance = 4;
 
@@ -1171,7 +1167,7 @@
             sampleCentroids.push({ cx, cy, borrowDeg, returnDeg });
           }
 
-          // 不再渲染圓心輔助點
+          // 不渲染圓心輔助點（需求完成後移除）
 
           const drawOneArrow = (deg, color, markerId, offsetSign) => {
             if (deg === null || deg === undefined || Number.isNaN(deg)) return;
