@@ -168,6 +168,20 @@
        */
       let tooltip = null;
 
+      /**
+       * Grid 版面配置（grid 模式專用）
+       * @type {{
+       *   minX: number,
+       *   maxX: number,
+       *   minY: number,
+       *   maxY: number,
+       *   cellSize: number,
+       *   offsetX: number,
+       *   offsetY: number
+       * } | null}
+       */
+      let gridLayoutConfig = null;
+
       // ═══════════════════════════════════════════════════════════════════════
       // 🎛️ 控制狀態 (Control States)
       // ═══════════════════════════════════════════════════════════════════════
@@ -477,6 +491,10 @@
             svg.remove();
           }
 
+          projection = null;
+          path = null;
+          gridLayoutConfig = null;
+
           const width = rect.width;
           const height = rect.height;
 
@@ -519,51 +537,114 @@
 
       /**
        * 🗺️ 繪製六角形網格（Grid 模式版本）
-       * 使用地圖投影，但沒有縣市界線
+       * 使用 grid_x、grid_y 排列，不依賴 GeoJSON coordinates
        */
       const drawHexGridOnly = () => {
-        if (!g || !hexData.value || !path) {
-          console.error(
-            '[MapTab] 無法繪製方格: g=',
-            !!g,
-            'hexData=',
-            !!hexData.value,
-            'path=',
-            !!path
-          );
+        if (!g || !hexData.value) {
+          console.error('[MapTab] 無法繪製方格: g=', !!g, 'hexData=', !!hexData.value);
           return;
         }
 
         try {
-          console.log('[MapTab] 開始繪製方格（Grid 模式）');
+          console.log('[MapTab] 開始繪製方格（Grid 模式，使用 grid_x/grid_y）');
 
           // 先清除舊的圖層（包括縣市界線）
           g.selectAll('.hex-grid').remove();
           g.selectAll('.county').remove();
-          // 直接繪製所有網格（無分類、無填色）
-          const hexPaths = g
+
+          const gridsWithXY = (hexData.value.features || []).filter((feature) => {
+            const gx = feature?.properties?.grid_x;
+            const gy = feature?.properties?.grid_y;
+            return Number.isFinite(gx) && Number.isFinite(gy);
+          });
+
+          if (gridsWithXY.length === 0) {
+            console.warn('[MapTab] 無法找到 grid_x 或 grid_y 屬性');
+            gridLayoutConfig = null;
+            return;
+          }
+
+          const gridXValues = gridsWithXY.map((d) => d.properties.grid_x);
+          const gridYValues = gridsWithXY.map((d) => d.properties.grid_y);
+
+          const minX = d3.min(gridXValues);
+          const maxX = d3.max(gridXValues);
+          const minY = d3.min(gridYValues);
+          const maxY = d3.max(gridYValues);
+
+          const svgWidth =
+            (svg ? +svg.attr('width') : null) || mapContainer.value.getBoundingClientRect().width;
+          const svgHeight =
+            (svg ? +svg.attr('height') : null) || mapContainer.value.getBoundingClientRect().height;
+
+          if (
+            !Number.isFinite(svgWidth) ||
+            !Number.isFinite(svgHeight) ||
+            svgWidth === 0 ||
+            svgHeight === 0
+          ) {
+            console.warn('[MapTab] SVG 尺寸無效，無法繪製 grid');
+            gridLayoutConfig = null;
+            return;
+          }
+
+          const padding = 40;
+          const availableWidth = Math.max(svgWidth - padding * 2, 0);
+          const availableHeight = Math.max(svgHeight - padding * 2, 0);
+
+          const rangeX = Math.max(maxX - minX + 1, 1);
+          const rangeY = Math.max(maxY - minY + 1, 1);
+
+          const cellSize = Math.min(availableWidth / rangeX, availableHeight / rangeY);
+
+          if (!Number.isFinite(cellSize) || cellSize <= 0) {
+            console.warn('[MapTab] 計算出的 cellSize 無效:', cellSize);
+            gridLayoutConfig = null;
+            return;
+          }
+
+          const actualWidth = cellSize * rangeX;
+          const actualHeight = cellSize * rangeY;
+
+          const offsetX = (svgWidth - actualWidth) / 2;
+          const offsetY = (svgHeight - actualHeight) / 2;
+
+          gridLayoutConfig = {
+            minX,
+            maxX,
+            minY,
+            maxY,
+            cellSize,
+            offsetX,
+            offsetY,
+          };
+
+          const strokeWidth = Math.max(cellSize * 0.06, 0.4);
+
+          const hexCells = g
             .selectAll('.hex-grid')
-            .data(hexData.value.features)
-            .enter()
-            .append('path')
-            .attr('d', path)
+            .data(gridsWithXY, (d) => `${d.properties.grid_x}-${d.properties.grid_y}`)
+            .join('rect')
             .attr('class', 'hex-grid')
+            .attr('x', (d) => offsetX + (d.properties.grid_x - minX) * cellSize)
+            .attr('y', (d) => offsetY + (maxY - d.properties.grid_y) * cellSize)
+            .attr('width', cellSize)
+            .attr('height', cellSize)
             .attr('fill', 'none')
             .attr('stroke', '#999')
-            .attr('stroke-width', 0.5)
+            .attr('stroke-width', strokeWidth)
             .attr('stroke-opacity', 0.7)
             .attr('shape-rendering', 'crispEdges')
             .attr('vector-effect', 'non-scaling-stroke')
             .style('cursor', 'pointer');
 
-          console.log('[DEBUG] Grid 模式 - 繪製了多少個 path 元素:', hexPaths.size());
-
-          hexPaths
+          hexCells
             .on('mouseover', function (event, d) {
-              d3.select(this).attr('stroke-width', 0.9).attr('stroke-opacity', 1);
+              d3.select(this)
+                .attr('stroke-width', strokeWidth * 1.3)
+                .attr('stroke-opacity', 1);
               if (tooltip) {
-                const properties = d.properties;
-                // 顯示所有 properties 欄位
+                const properties = d.properties || {};
                 let tooltipHTML = '';
                 Object.keys(properties).forEach((key) => {
                   const value = properties[key];
@@ -584,17 +665,24 @@
               }
             })
             .on('mouseout', function () {
-              d3.select(this).attr('stroke-width', 0.5).attr('stroke-opacity', 0.7);
+              d3.select(this).attr('stroke-width', strokeWidth).attr('stroke-opacity', 0.7);
               if (tooltip) {
                 tooltip.style.opacity = 0;
               }
             });
 
-          console.log('[MapTab] 方格（Grid 模式）繪製完成');
+          console.log('[MapTab] 方格（Grid 模式）繪製完成', {
+            cells: gridsWithXY.length,
+            cellSize,
+            offsetX,
+            offsetY,
+          });
+
           // 在每個方格中心繪製借車/還車角度箭頭
           drawAngleArrows();
         } catch (error) {
           console.error('[MapTab] 方格繪製失敗:', error);
+          gridLayoutConfig = null;
         }
       };
 
@@ -794,6 +882,7 @@
         console.log('[MapTab] 切換顯示模式:', mode);
 
         if (displayMode.value === 'map') {
+          gridLayoutConfig = null;
           // 地圖模式：需要地圖投影，載入縣市界線和六角形網格
           if (!countyData.value) {
             await loadCountyData();
@@ -872,81 +961,21 @@
           drawCounties();
           drawHexGrid();
         } else {
-          // Grid 模式：載入六角形網格數據，需要地圖投影來繪製
+          // 清除縣市界線數據（不需要）
+          countyData.value = null;
+          gridLayoutConfig = null;
+
+          // Grid 模式：載入六角形網格數據，使用 grid_x/grid_y 排列
           if (!hexData.value) {
             await loadHexData();
           }
-          // 清除縣市界線數據（不需要）
-          countyData.value = null;
 
-          // 清除舊的 SVG（如果從地圖模式切換過來）
-          if (svg && !projection) {
-            svg.remove();
-            svg = null;
+          if (!createGridCanvas()) {
+            console.warn('[MapTab] Grid 畫布建立失敗，暫停繪圖');
+            return;
           }
 
-          if (!projection || !path) {
-            // 如果還沒有創建地圖，先創建
-            const rect = mapContainer.value.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
-              const width = rect.width;
-              const height = rect.height;
-
-              // 清除舊的 SVG
-              if (svg) {
-                svg.remove();
-              }
-
-              // 創建 SVG 和地圖投影（Grid 模式也需要投影來繪製六角形）
-              svg = d3
-                .select(mapContainer.value)
-                .append('svg')
-                .attr('width', width)
-                .attr('height', height)
-                .style('background', '#ffffff');
-
-              projection = d3.geoMercator();
-              if (countyData.value) {
-                projection.fitExtent(
-                  [
-                    [20, 20],
-                    [width - 20, height - 20],
-                  ],
-                  countyData.value
-                );
-              } else {
-                projection
-                  .center([121, 25.05])
-                  .scale(45000)
-                  .translate([width / 2, height / 2]);
-              }
-
-              path = d3.geoPath().projection(projection);
-              g = svg.append('g');
-
-              zoom = d3
-                .zoom()
-                .scaleExtent([0.8, 12])
-                .on('zoom', (event) => {
-                  g.attr('transform', event.transform);
-                });
-
-              svg.call(zoom);
-
-              // 重置縮放狀態
-              svg.call(zoom.transform, d3.zoomIdentity);
-
-              createTooltip();
-              isMapReady.value = true;
-            }
-          } else {
-            // 如果已經創建了地圖，重置縮放狀態
-            if (svg && zoom) {
-              svg.call(zoom.transform, d3.zoomIdentity);
-            }
-          }
-
-          // 繪製六角形網格（Grid 模式，不顯示縣市界線）
+          // 繪製六角形網格（Grid 模式，使用 grid_x/grid_y）
           drawHexGridOnly();
         }
       };
@@ -1047,7 +1076,9 @@
        * - 還車：紅色 '#d32f2f'，使用 marker 'arrow-return'
        */
       const drawAngleArrows = () => {
-        if (!g || !hexData.value || !path) return;
+        if (!g || !hexData.value) return;
+
+        // 目前兩種模式繪圖邏輯相同（皆以 grid 中心為原點）
 
         // 先清除舊的箭頭
         g.selectAll('.angle-arrows').remove();
@@ -1062,9 +1093,38 @@
 
         const features = hexData.value.features || [];
 
-        // 箭頭長度（縮小一半），兩支箭頭共用同一個原點（不做側向偏移）
-        const arrowLength = 8;
-        const offsetDistance = 0;
+        // 準備網格版面配置：若 gridLayoutConfig 不在（如地圖模式），動態建立
+        let layout = gridLayoutConfig;
+        if (!layout) {
+          const gridsWithXY = (features || []).filter(
+            (f) => Number.isFinite(f?.properties?.grid_x) && Number.isFinite(f?.properties?.grid_y)
+          );
+          if (gridsWithXY.length === 0) {
+            console.warn('[MapTab] 缺少 grid_x/grid_y，略過箭頭繪製');
+            return;
+          }
+          const gridXValues = gridsWithXY.map((d) => d.properties.grid_x);
+          const gridYValues = gridsWithXY.map((d) => d.properties.grid_y);
+          const minX = d3.min(gridXValues);
+          const maxX = d3.max(gridXValues);
+          const minY = d3.min(gridYValues);
+          const maxY = d3.max(gridYValues);
+          const svgWidth =
+            (svg ? +svg.attr('width') : null) || mapContainer.value.getBoundingClientRect().width;
+          const svgHeight =
+            (svg ? +svg.attr('height') : null) || mapContainer.value.getBoundingClientRect().height;
+          const padding = 40;
+          const availableWidth = Math.max(svgWidth - 2 * padding, 0);
+          const availableHeight = Math.max(svgHeight - 2 * padding, 0);
+          const rangeX = Math.max(maxX - minX + 1, 1);
+          const rangeY = Math.max(maxY - minY + 1, 1);
+          const cellSize = Math.min(availableWidth / rangeX, availableHeight / rangeY);
+          const actualWidth = cellSize * rangeX;
+          const actualHeight = cellSize * rangeY;
+          const offsetX = (svgWidth - actualWidth) / 2;
+          const offsetY = (svgHeight - actualHeight) / 2;
+          layout = { minX, maxX, minY, maxY, cellSize, offsetX, offsetY };
+        }
 
         let validBorrow = 0;
         let validReturn = 0;
@@ -1074,28 +1134,16 @@
           const borrowDeg = feature.properties?.['借車角度平均'];
           const returnDeg = feature.properties?.['還車角度平均'];
 
-          // 使用 d3.polygonCentroid 計算多邊形中心
+          // 以 grid_x/grid_y 的格心為原點（兩模式一致）
           let cx, cy;
-          try {
-            if (
-              feature.geometry &&
-              feature.geometry.coordinates &&
-              feature.geometry.coordinates[0]
-            ) {
-              const coords = feature.geometry.coordinates[0];
-              const polygon = coords.map((coord) => [coord[0], coord[1]]);
-              const centroid = d3.polygonCentroid(polygon);
-              const projected = projection(centroid);
-              cx = projected[0];
-              cy = projected[1];
-            } else {
-              // 備用方案：使用 path.centroid
-              [cx, cy] = path.centroid(feature);
-            }
-          } catch (e) {
-            console.warn('Centroid calculation failed:', e);
-            return;
-          }
+          let arrowLengthForFeature = 12;
+          const gridX = feature?.properties?.grid_x;
+          const gridY = feature?.properties?.grid_y;
+          if (!Number.isFinite(gridX) || !Number.isFinite(gridY)) return;
+          const { cellSize, offsetX, offsetY, minX, maxY } = layout;
+          cx = offsetX + (gridX - minX + 0.5) * cellSize;
+          cy = offsetY + (maxY - gridY + 0.5) * cellSize;
+          arrowLengthForFeature = Math.max(Math.min((cellSize || 0) * 0.42, 22), 5);
 
           if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
             return;
@@ -1112,12 +1160,12 @@
             if (deg === null || deg === undefined || Number.isNaN(deg)) return;
             // 以指南針角度為準：正上方=0°，順時針增加
             const rad = ((deg - 90) * Math.PI) / 180;
-            const dx = Math.cos(rad) * arrowLength;
-            const dy = Math.sin(rad) * arrowLength;
+            const dx = Math.cos(rad) * arrowLengthForFeature;
+            const dy = Math.sin(rad) * arrowLengthForFeature;
 
             // 與方向垂直的偏移，讓兩支箭頭不重疊
-            const ox = -Math.sin(rad) * offsetDistance * offsetSign;
-            const oy = Math.cos(rad) * offsetDistance * offsetSign;
+            const ox = 0;
+            const oy = 0;
 
             const x1 = pointToCenter ? cx + ox - dx : cx + ox;
             const y1 = pointToCenter ? cy + oy - dy : cy + oy;
@@ -1130,10 +1178,10 @@
               .attr('y1', y1)
               .attr('x2', x2)
               .attr('y2', y2)
-              .attr('stroke', color)
-              .attr('stroke-width', 1.5)
-              .attr('stroke-linecap', 'butt')
-              .attr('stroke-opacity', 0.95)
+              .style('stroke', color)
+              .attr('stroke-width', Math.max(arrowLengthForFeature * 0.12, 1.6))
+              .attr('stroke-linecap', 'round')
+              .attr('stroke-opacity', 1)
               .attr('class', 'angle-arrow');
           };
 
