@@ -1072,13 +1072,16 @@
 
       /**
        * 🧭 在每個網格的中心畫出借車/還車角度的箭頭
-       * - 借車：藍色 '#1a237e'，使用 marker 'arrow-borrow'
-       * - 還車：紅色 '#d32f2f'，使用 marker 'arrow-return'
+       * - 借車：綠色，使用 marker 'arrow-borrow'
+       * - 還車：藍色，使用 marker 'arrow-return'
+       *
+       * 網格模式：使用 grid_x/grid_y 計算格心（直接轉換為 SVG 座標）
+       * 地圖模式：使用 grid_x/grid_y 計算格心，但透過 GeoJSON coordinates 的中心點經過 projection 轉換
        */
       const drawAngleArrows = () => {
         if (!g || !hexData.value) return;
 
-        // 目前兩種模式繪圖邏輯相同（皆以 grid 中心為原點）
+        const isGridMode = displayMode.value === 'grid';
 
         // 先清除舊的箭頭
         g.selectAll('.angle-arrows').remove();
@@ -1093,39 +1096,6 @@
 
         const features = hexData.value.features || [];
 
-        // 準備網格版面配置：若 gridLayoutConfig 不在（如地圖模式），動態建立
-        let layout = gridLayoutConfig;
-        if (!layout) {
-          const gridsWithXY = (features || []).filter(
-            (f) => Number.isFinite(f?.properties?.grid_x) && Number.isFinite(f?.properties?.grid_y)
-          );
-          if (gridsWithXY.length === 0) {
-            console.warn('[MapTab] 缺少 grid_x/grid_y，略過箭頭繪製');
-            return;
-          }
-          const gridXValues = gridsWithXY.map((d) => d.properties.grid_x);
-          const gridYValues = gridsWithXY.map((d) => d.properties.grid_y);
-          const minX = d3.min(gridXValues);
-          const maxX = d3.max(gridXValues);
-          const minY = d3.min(gridYValues);
-          const maxY = d3.max(gridYValues);
-          const svgWidth =
-            (svg ? +svg.attr('width') : null) || mapContainer.value.getBoundingClientRect().width;
-          const svgHeight =
-            (svg ? +svg.attr('height') : null) || mapContainer.value.getBoundingClientRect().height;
-          const padding = 40;
-          const availableWidth = Math.max(svgWidth - 2 * padding, 0);
-          const availableHeight = Math.max(svgHeight - 2 * padding, 0);
-          const rangeX = Math.max(maxX - minX + 1, 1);
-          const rangeY = Math.max(maxY - minY + 1, 1);
-          const cellSize = Math.min(availableWidth / rangeX, availableHeight / rangeY);
-          const actualWidth = cellSize * rangeX;
-          const actualHeight = cellSize * rangeY;
-          const offsetX = (svgWidth - actualWidth) / 2;
-          const offsetY = (svgHeight - actualHeight) / 2;
-          layout = { minX, maxX, minY, maxY, cellSize, offsetX, offsetY };
-        }
-
         let validBorrow = 0;
         let validReturn = 0;
         let sampleCentroids = [];
@@ -1133,17 +1103,64 @@
         features.forEach((feature, idx) => {
           const borrowDeg = feature.properties?.['借車角度平均'];
           const returnDeg = feature.properties?.['還車角度平均'];
-
-          // 以 grid_x/grid_y 的格心為原點（兩模式一致）
-          let cx, cy;
-          let arrowLengthForFeature = 12;
           const gridX = feature?.properties?.grid_x;
           const gridY = feature?.properties?.grid_y;
+
           if (!Number.isFinite(gridX) || !Number.isFinite(gridY)) return;
-          const { cellSize, offsetX, offsetY, minX, maxY } = layout;
-          cx = offsetX + (gridX - minX + 0.5) * cellSize;
-          cy = offsetY + (maxY - gridY + 0.5) * cellSize;
-          arrowLengthForFeature = Math.max(Math.min((cellSize || 0) * 0.42, 22), 5);
+
+          let cx, cy;
+          let arrowLengthForFeature = 12;
+
+          if (isGridMode && gridLayoutConfig) {
+            // 網格模式：使用 grid_x/grid_y 直接計算 SVG 座標
+            const { cellSize, offsetX, offsetY, minX, maxY } = gridLayoutConfig;
+            cx = offsetX + (gridX - minX + 0.5) * cellSize;
+            cy = offsetY + (maxY - gridY + 0.5) * cellSize;
+            arrowLengthForFeature = Math.max(Math.min((cellSize || 0) * 0.42, 22), 5);
+          } else if (projection && path) {
+            // 地圖模式：從 GeoJSON coordinates 計算 polygon 中心，透過 projection 轉換
+            try {
+              // 使用 d3.geoCentroid 從 GeoJSON coordinates 計算地理中心
+              const centroid = d3.geoCentroid(feature);
+              const projected = projection(centroid);
+              cx = projected?.[0];
+              cy = projected?.[1];
+
+              // 如果 geoCentroid 失敗，回退到 path.centroid
+              if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
+                [cx, cy] = path.centroid(feature);
+              }
+
+              // 根據 polygon 大小計算箭頭長度
+              if (Number.isFinite(cx) && Number.isFinite(cy)) {
+                try {
+                  const bounds = path.bounds(feature);
+                  if (bounds && bounds.length === 2) {
+                    const width = Math.abs(bounds[1][0] - bounds[0][0]);
+                    const height = Math.abs(bounds[1][1] - bounds[0][1]);
+                    const minSize = Math.min(width, height);
+                    if (Number.isFinite(minSize) && minSize > 0) {
+                      arrowLengthForFeature = Math.max(Math.min(minSize * 0.4, 26), 6);
+                    } else {
+                      arrowLengthForFeature = 14;
+                    }
+                  }
+                } catch (err) {
+                  arrowLengthForFeature = 14;
+                }
+              }
+            } catch (e) {
+              try {
+                [cx, cy] = path.centroid(feature);
+                arrowLengthForFeature = 14;
+              } catch (err) {
+                console.warn('Centroid calculation failed:', err);
+                return;
+              }
+            }
+          } else {
+            return;
+          }
 
           if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
             return;
@@ -1151,10 +1168,8 @@
 
           // 記錄前幾個 centroid 位置用於調試
           if (idx < 5 && (borrowDeg || returnDeg)) {
-            sampleCentroids.push({ cx, cy, borrowDeg, returnDeg });
+            sampleCentroids.push({ gridX, gridY, cx, cy, borrowDeg, returnDeg });
           }
-
-          // 不渲染圓心輔助點（需求完成後移除）
 
           const drawOneArrow = (deg, color, markerId, offsetSign, pointToCenter = false) => {
             if (deg === null || deg === undefined || Number.isNaN(deg)) return;
@@ -1163,7 +1178,6 @@
             const dx = Math.cos(rad) * arrowLengthForFeature;
             const dy = Math.sin(rad) * arrowLengthForFeature;
 
-            // 與方向垂直的偏移，讓兩支箭頭不重疊
             const ox = 0;
             const oy = 0;
 
@@ -1185,20 +1199,18 @@
               .attr('class', 'angle-arrow');
           };
 
-          // 借車角度箭頭（藍）在一側偏移
+          // 借車角度箭頭（綠）從中心朝外
           const beforeB = arrowsGroup.selectAll('.angle-arrow').size();
-          // 借車：箭頭由中心朝外（忽略 null/NaN）
           if (borrowDeg !== null && borrowDeg !== undefined && !Number.isNaN(borrowDeg)) {
-            drawOneArrow(borrowDeg, 'var(--map-arrow-borrow)', 'arrow-borrow', 1, false);
+            drawOneArrow(borrowDeg, '#4caf50', 'arrow-borrow', 1, false);
           }
           const afterB = arrowsGroup.selectAll('.angle-arrow').size();
           if (afterB > beforeB) validBorrow++;
 
-          // 還車角度箭頭（紅）在另一側偏移
+          // 還車角度箭頭（藍）朝向中心
           const beforeR = arrowsGroup.selectAll('.angle-arrow').size();
-          // 還車：箭頭由外朝中心（箭頭尖端在中心），角度先加 180°（忽略 null/NaN）
           if (returnDeg !== null && returnDeg !== undefined && !Number.isNaN(returnDeg)) {
-            drawOneArrow(returnDeg + 180, 'var(--map-arrow-return)', 'arrow-return', -1, true);
+            drawOneArrow(returnDeg + 180, '#0068b7', 'arrow-return', -1, true);
           }
           const afterR = arrowsGroup.selectAll('.angle-arrow').size();
           if (afterR > beforeR) validReturn++;
@@ -1215,6 +1227,7 @@
         if (arrowsGroup.raise) arrowsGroup.raise();
 
         console.log('[MapTab] 角度箭頭繪製完成', {
+          mode: isGridMode ? 'grid' : 'map',
           features: features.length,
           validBorrow,
           validReturn,
